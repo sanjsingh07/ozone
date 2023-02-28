@@ -1,2 +1,9 @@
-# ozone-chain
-Ozone chain official repository
+## Dexit Network
+
+
+DeXit Network is high- performance transactions, fully compatible with EVM and support smart contract functionality today most of the Blockchain do not incentivize smart contract developers for their contribution to the network 
+DeXit Network intended to incentive for Smart contract Developer by offering up to 45% gas Fee on protocol level. DeXit is decentralized, high-efficiency and energy-saving public chain. The Native token of DeXit is DXT and it adopts the POSA consensus mechanism.
+it is built client based on the go-ethereum and it offers an open-source framework for smart contracts. The project is an Ethereum sidechain that uses POSA consensus mechanism, validators are selected based on your staking weight to secure the network. The validators' identity is public.
+To become a validator, you need to stake minimum 10000DXT first and wait for other active validators or delegator to vote on you to rank up your position,  after your rank hit top max validator number, you will be eligible to become a validator.
+ Any address can stake to an address that qualifies to become a validator DeXit Network implementation has 21+ validators with Proof of Staked Authority (PoSA) consensus that can support short block time and lower fees. The most bonded validator candidates of staking will become validators and produce blocks. are responsible for committing new blocks in the blockchain. These validators participate in the consensus protocol by signing blocks that contain cryptographic signatures signed by each validator's private key.
+Validator's rewards come from transaction fees and commission fees from delegators. There will be penalty for Validator depends on the severity of the violation. It can be Potential Loss Loss for Double-Sign Slash Running your validator Account keys simultaneously on two or more machines will result in Double-Sign slashing. Penalty for Double-Sign Slash: Self staked will be slashed for the validator. The Double-Sign Jail time is 2^63-1 seconds, which means the candidate cannot become a validator anymore. Note: Rewards for submitting double-sign evidence: 1M DXT Anyone can submit a slashing request on Dexit with the evidence of Double Sign, which should contain the 2 block headers with the same height
