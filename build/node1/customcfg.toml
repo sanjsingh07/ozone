@@ -1,0 +1,23 @@
+{ChainID: 77711 
+Homestead: 0 
+DAO: <nil> 
+DAOSupport: false 
+EIP150: 0 
+EIP155: 0 
+EIP158: 0 
+Byzantium: 0 
+Constantinople: 0 
+Petersburg: 0 
+Istanbul: 0, Muir Glacier: <nil>, Ramanujan: <nil>, Niels: <nil>, MirrorSync: <nil>, Bruno: <nil>, Berlin: <nil>, YOLO v3: <nil>, CatalystBlock: <nil>, London: <nil>, ArrowGlacier: <nil>, MergeFork:<nil>, Euler: <nil>, Gibbs: <nil>, Nano: <nil>, Moran: <nil>, Planck: <nil>, Engine: parlia}" 
+customGenesis="&{Config:{ChainID: 77711 Homestead: 0 DAO: <nil> DAOSupport: false EIP150: 0 EIP155: 0 EIP158: 0 Byzantium: 0 Constantinople: 0 Petersburg: 0 Istanbul: 0, Muir Glacier: <nil>, Ramanujan: <nil>, Niels: <nil>, MirrorSync: <nil>, Bruno: <nil>, Berlin: <nil>, YOLO v3: <nil>, CatalystBlock: <nil>, London: <nil>, ArrowGlacier: <nil>, MergeFork:<nil>, Euler: <nil>, Gibbs: <nil>, Nano: <nil>, Moran: <nil>, Planck: <nil>, Engine: parlia} 
+Nonce:0 
+Timestamp:1679411525 
+ExtraData:[0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 250 29 17 46 211 130 182 142 61 44 228 196 96 160 212 249 3 113 114 150 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] 
+GasLimit:40000000 
+Difficulty:+1 
+Mixhash:0x0000000000000000000000000000000000000000000000000000000000000000 
+Coinbase:0x0000000000000000000000000000000000000000 
+Alloc:map[0x0000000000000000000000000000000000000000:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000001:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000002:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000003:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000004:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000005:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000006:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000007:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000008:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0x0000000000000000000000000000000000000009:{Code:[] Storage:map[] Balance:+1 Nonce:0 PrivateKey:[]} 0xfa1d112ed382b68e3d2Ce4c460A0d4F903717296:{Code:[] Storage:map[] Balance:+500000000000000000000 Nonce:0 PrivateKey:[]}] 
+Number:0 
+GasUsed:0 ParentHash:0x0000000000000000000000000000000000000000000000000000000000000000 
+BaseFee:<nil>}

@@ -39,11 +39,11 @@ const (
 // memory and disk IO. If the args don't set --datadir, the
 // child g gets a temporary data directory.
 func runMinimalGeth(t *testing.T, args ...string) *testgeth {
-	// --ropsten to make the 'writing genesis to disk' faster (no accounts)
 	// --networkid=1337 to avoid cache bump
 	// --syncmode=full to avoid allocating fast sync bloom
-	allArgs := []string{"--ropsten", "--networkid", "1337", "--syncmode=full", "--port", "0",
-		"--nat", "none", "--nodiscover", "--maxpeers", "0", "--cache", "64"}
+	allArgs := []string{"--networkid", "1337", "--syncmode=full", "--port", "0",
+		"--nat", "none", "--nodiscover", "--maxpeers", "0", "--cache", "64",
+		"--datadir.minfreedisk", "0"}
 	return runGeth(t, append(allArgs, args...)...)
 }
 
@@ -75,7 +75,7 @@ at block: 0 ({{niltime}})
  datadir: {{.Datadir}}
  modules: {{apis}}
 
-To exit, press ctrl-d
+To exit, press ctrl-d or type exit
 > {{.InputLine "exit"}}
 `)
 	geth.ExpectExit()
@@ -149,7 +149,7 @@ at block: 0 ({{niltime}}){{if ipc}}
  datadir: {{datadir}}{{end}}
  modules: {{apis}}
 
-To exit, press ctrl-d
+To exit, press ctrl-d or type exit
 > {{.InputLine "exit" }}
 `)
 	attach.ExpectExit()

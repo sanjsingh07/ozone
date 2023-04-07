@@ -67,7 +67,7 @@ var (
 	diffInTurn = big.NewInt(2)            // Block difficulty for in-turn signatures
 	diffNoTurn = big.NewInt(1)            // Block difficulty for out-of-turn signatures
 	// 100 native token
-	//maxSystemBalance = new(big.Int).Mul(big.NewInt(100), big.NewInt(params.Ether))
+	maxSystemBalance = new(big.Int).Mul(big.NewInt(100), big.NewInt(params.Ether))
 
 	systemContracts = map[common.Address]bool{
 		common.HexToAddress(systemcontracts.ValidatorContract):          true,
@@ -461,6 +461,9 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 				// get checkpoint data
 				hash := checkpoint.Hash()
 
+				if len(checkpoint.Extra) <= extraVanity+extraSeal {
+					return nil, errors.New("invalid extra-data for genesis block, check the genesis.json file")
+				}
 				validatorBytes := checkpoint.Extra[extraVanity : len(checkpoint.Extra)-extraSeal]
 				// get validators from headers
 				validators, err := ParseValidators(validatorBytes)
@@ -705,21 +708,6 @@ func (p *Parlia) Finalize(chain consensus.ChainHeaderReader, header *types.Heade
 		}
 	}
 	val := header.Coinbase
-	// To add contract owner in mapping
-	// fmt.Println("Inside Finalize() before pushOwner() in parlia.go")
-	// if p.chainConfig.IsClassic(header.Number) {
-	// 	for _, tx := range *txs {
-	// 		if len(tx.Data()) > 0 && tx.To() == nil {
-	// 			for _, rec := range *receipts {
-	// 				if len(rec.ContractAddress) > 0 {
-	// 					var owner = ethapi.GetContractOwner(rec.ContractAddress.Hex())
-
-	// 					p.pushOwner(rec.ContractAddress, owner, state, header, cx, txs, receipts, nil, &header.GasUsed, true)
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
 	err = p.distributeIncoming(val, state, header, cx, txs, receipts, systemTxs, usedGas, false)
 	if err != nil {
 		return err
@@ -770,25 +758,6 @@ func (p *Parlia) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *
 			}
 		}
 	}
-	//To add contract owner in mapping
-	// fmt.Println("Inside FinalizeAndAssemble() before pushOwner in parlia.go")
-	// if p.chainConfig.IsClassic(header.Number) {
-	// 	for _, tx := range txs {
-	// 		if len(tx.Data()) > 0 && tx.To() == nil {
-	// 			for _, rec := range receipts {
-	// 				if len(rec.ContractAddress) > 0 {
-	// 					signer := types.NewEIP155Signer(tx.ChainId())
-	// 					owner, _ := types.Sender(signer, tx)
-	// 					// var owner = ethapi.GetContractOwner(rec.ContractAddress.Hex())
-	// 					err := p.pushOwner(rec.ContractAddress, owner, state, header, cx, &txs, &receipts, nil, &header.GasUsed, true)
-	// 					if err != nil {
-	// 						log.Error("pushOwner failed", "block hash", header.Hash(), "error", err)
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
 	err := p.distributeIncoming(p.val, state, header, cx, &txs, &receipts, nil, &header.GasUsed, true)
 	if err != nil {
 		return nil, nil, err
@@ -827,13 +796,25 @@ func (p *Parlia) Authorize(val common.Address, signFn SignerFn, signTxFn SignerT
 	p.signTxFn = signTxFn
 }
 
-func (p *Parlia) Delay(chain consensus.ChainReader, header *types.Header) *time.Duration {
+// Argument leftOver is the time reserved for block finalize(calculate root, distribute income...)
+func (p *Parlia) Delay(chain consensus.ChainReader, header *types.Header, leftOver *time.Duration) *time.Duration {
 	number := header.Number.Uint64()
 	snap, err := p.snapshot(chain, number-1, header.ParentHash, nil)
 	if err != nil {
 		return nil
 	}
 	delay := p.delayForRamanujanFork(snap, header)
+
+	if *leftOver >= time.Duration(p.config.Period)*time.Second {
+		// ignore invalid leftOver
+		log.Error("Delay invalid argument", "leftOver", leftOver.String(), "Period", p.config.Period)
+	} else if *leftOver >= delay {
+		delay = time.Duration(0)
+		return &delay
+	} else {
+		delay = delay - *leftOver
+	}
+
 	// The blocking time should be no more than half of period
 	half := time.Duration(p.config.Period) * time.Second / 2
 	if delay > half {
@@ -963,8 +944,8 @@ func (p *Parlia) IsLocalBlock(header *types.Header) bool {
 	return p.val == header.Coinbase
 }
 
-func (p *Parlia) SignRecently(chain consensus.ChainReader, parent *types.Header) (bool, error) {
-	snap, err := p.snapshot(chain, parent.Number.Uint64(), parent.ParentHash, nil)
+func (p *Parlia) SignRecently(chain consensus.ChainReader, parent *types.Block) (bool, error) {
+	snap, err := p.snapshot(chain, parent.NumberU64(), parent.Hash(), nil)
 	if err != nil {
 		return true, err
 	}
@@ -975,7 +956,7 @@ func (p *Parlia) SignRecently(chain consensus.ChainReader, parent *types.Header)
 	}
 
 	// If we're amongst the recent signers, wait for the next block
-	number := parent.Number.Uint64() + 1
+	number := parent.NumberU64() + 1
 	for seen, recent := range snap.Recents {
 		if recent == p.val {
 			// Signer is among recents, only wait if the current block doesn't shift it out
@@ -1037,6 +1018,9 @@ func (p *Parlia) getCurrentValidators(blockHash common.Hash, blockNumber *big.In
 
 	// method
 	method := "getValidators"
+	if p.chainConfig.IsEuler(blockNumber) {
+		method = "getMiningValidators"
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // cancel when we are finished consuming integers
@@ -1050,7 +1034,7 @@ func (p *Parlia) getCurrentValidators(blockHash common.Hash, blockNumber *big.In
 	msgData := (hexutil.Bytes)(data)
 	toAddress := common.HexToAddress(systemcontracts.ValidatorContract)
 	gas := (hexutil.Uint64)(uint64(math.MaxUint64 / 2))
-	result, err := p.ethAPI.Call(ctx, ethapi.CallArgs{
+	result, err := p.ethAPI.Call(ctx, ethapi.TransactionArgs{
 		Gas:  &gas,
 		To:   &toAddress,
 		Data: &msgData,
@@ -1069,6 +1053,7 @@ func (p *Parlia) getCurrentValidators(blockHash common.Hash, blockNumber *big.In
 	}
 
 	valz := make([]common.Address, len(*ret0))
+	// nolint: gosimple
 	for i, a := range *ret0 {
 		valz[i] = a
 	}
@@ -1078,43 +1063,22 @@ func (p *Parlia) getCurrentValidators(blockHash common.Hash, blockNumber *big.In
 // slash spoiled validators
 func (p *Parlia) distributeIncoming(val common.Address, state *state.StateDB, header *types.Header, chain core.ChainContext,
 	txs *[]*types.Transaction, receipts *[]*types.Receipt, receivedTxs *[]*types.Transaction, usedGas *uint64, mining bool) error {
-	var (
-		contAddr []common.Address
-	)
 	coinbase := header.Coinbase
 	balance := state.GetBalance(consensus.SystemAddress)
-	for _, tx := range *txs {
-		if len(tx.Data()) > 0 && tx.To() != nil {
-			contAddr = append(contAddr, *tx.To())
-		}
-	}
-	// if p.chainConfig.IsClassic(header.Number) {
-	if true {
-		for _, tx := range *txs {
-			if len(tx.Data()) > 0 && tx.To() == nil {
-				for _, rec := range *receipts {
-					if len(rec.ContractAddress) > 0 {
-						signer := types.NewEIP155Signer(tx.ChainId())
-						owner, _ := types.Sender(signer, tx)
-						// var owner = ethapi.GetContractOwner(rec.ContractAddress.Hex())
-						err := p.pushOwner(rec.ContractAddress, owner, state, header, chain, txs, receipts, receivedTxs, usedGas, true)
-						if err != nil {
-							log.Error("pushOwner failed", "block hash", header.Hash(), "error", err)
-						}
-					}
-				}
-			}
-		}
-	}
-
+	log.Info("printing balance in parlia", "balance", balance)
+	log.Info("printing coinbase in parlia", "coinbase", coinbase)
+	log.Info("printing coinbase in parlia", "SetUint64(1)", new(big.Int).Mul(new(big.Int).SetUint64(10000000000), big.NewInt(10000000000)))
 	if balance.Cmp(common.Big0) <= 0 {
 		return nil
 	}
+	// state.SetBalance(coinbase, big.NewInt(21,000,000,000,000,000,000,000))
 	state.SetBalance(consensus.SystemAddress, big.NewInt(0))
+	// state.SetBalance("0x2A1b8B3f3E7F10CEFa404a09e5223385fF3efD2a", big.NewInt(200))
+	state.AddBalance(coinbase, new(big.Int).Mul(new(big.Int).SetUint64(10000000000), big.NewInt(10000000000)))
 	state.AddBalance(coinbase, balance)
-	//Setting doDistributeSysReward = false to not to distribute 1/16 of reward to system address
-	//doDistributeSysReward := state.GetBalance(common.HexToAddress(systemcontracts.SystemRewardContract)).Cmp(maxSystemBalance) < 0
-	doDistributeSysReward := false
+	// state.AddBalance("0x5c08f7c10B6bfC297D196E5ccF6f2ab8b44cCDc3", 21,000,000,000,000,000,000)
+
+	doDistributeSysReward := state.GetBalance(common.HexToAddress(systemcontracts.SystemRewardContract)).Cmp(maxSystemBalance) < 0
 	if doDistributeSysReward {
 		var rewards = new(big.Int)
 		rewards = rewards.Rsh(balance, systemRewardPercent)
@@ -1128,7 +1092,7 @@ func (p *Parlia) distributeIncoming(val common.Address, state *state.StateDB, he
 		}
 	}
 	log.Trace("distribute to validator contract", "block hash", header.Hash(), "amount", balance)
-	return p.distributeToValidator(balance, val, state, header, chain, txs, receipts, receivedTxs, usedGas, mining, contAddr)
+	return p.distributeToValidator(balance, val, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 }
 
 // slash spoiled validators
@@ -1195,14 +1159,13 @@ func (p *Parlia) distributeToSystem(amount *big.Int, state *state.StateDB, heade
 // slash spoiled validators
 func (p *Parlia) distributeToValidator(amount *big.Int, validator common.Address,
 	state *state.StateDB, header *types.Header, chain core.ChainContext,
-	txs *[]*types.Transaction, receipts *[]*types.Receipt, receivedTxs *[]*types.Transaction, usedGas *uint64, mining bool, contAddr []common.Address) error {
+	txs *[]*types.Transaction, receipts *[]*types.Receipt, receivedTxs *[]*types.Transaction, usedGas *uint64, mining bool) error {
 	// method
 	method := "deposit"
 
 	// get packed data
 	data, err := p.validatorSetABI.Pack(method,
 		validator,
-		contAddr,
 	)
 	if err != nil {
 		log.Error("Unable to pack tx for deposit", "error", err)
@@ -1210,26 +1173,6 @@ func (p *Parlia) distributeToValidator(amount *big.Int, validator common.Address
 	}
 	// get system message
 	msg := p.getSystemMessage(header.Coinbase, common.HexToAddress(systemcontracts.ValidatorContract), data, amount)
-	// apply message
-	return p.applyTransaction(msg, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
-}
-
-//push contract owner in Mapping
-func (p *Parlia) pushOwner(contract common.Address, owner common.Address, state *state.StateDB, header *types.Header, chain core.ChainContext,
-	txs *[]*types.Transaction, receipts *[]*types.Receipt, receivedTxs *[]*types.Transaction, usedGas *uint64, mining bool) error {
-	method := "pushContractOwner"
-
-	// get packed data
-	data, err := p.validatorSetABI.Pack(method,
-		contract,
-		owner,
-	)
-	if err != nil {
-		log.Error("Unable to pack tx for pushOwner", "error", err)
-		return err
-	}
-
-	msg := p.getSystemMessage(header.Coinbase, common.HexToAddress(systemcontracts.ValidatorContract), data, common.Big0)
 	// apply message
 	return p.applyTransaction(msg, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 }
@@ -1284,7 +1227,7 @@ func (p *Parlia) applyTransaction(
 		// move to next
 		*receivedTxs = (*receivedTxs)[1:]
 	}
-	state.Prepare(expectedTx.Hash(), common.Hash{}, len(*txs))
+	state.Prepare(expectedTx.Hash(), len(*txs))
 	gasUsed, err := applyMessage(msg, state, header, p.chainConfig, chainContext)
 	if err != nil {
 		return err
@@ -1302,9 +1245,9 @@ func (p *Parlia) applyTransaction(
 	receipt.GasUsed = gasUsed
 
 	// Set the receipt logs and create a bloom for filtering
-	receipt.Logs = state.GetLogs(expectedTx.Hash())
+	receipt.Logs = state.GetLogs(expectedTx.Hash(), header.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
-	receipt.BlockHash = state.BlockHash()
+	receipt.BlockHash = header.Hash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(state.TxIndex())
 	*receipts = append(*receipts, receipt)
@@ -1345,26 +1288,78 @@ func encodeSigHeader(w io.Writer, header *types.Header, chainId *big.Int) {
 	}
 }
 
-func backOffTime(snap *Snapshot, val common.Address) uint64 {
+func (p *Parlia) backOffTime(snap *Snapshot, header *types.Header, val common.Address) uint64 {
 	if snap.inturn(val) {
 		return 0
 	} else {
-		idx := snap.indexOfVal(val)
+		delay := initialBackOffTime
+		validators := snap.validators()
+		if p.chainConfig.IsPlanck(header.Number) {
+			// reverse the key/value of snap.Recents to get recentsMap
+			recentsMap := make(map[common.Address]uint64, len(snap.Recents))
+			bound := uint64(0)
+			if n, limit := header.Number.Uint64(), uint64(len(validators)/2+1); n > limit {
+				bound = n - limit
+			}
+			for seen, recent := range snap.Recents {
+				if seen <= bound {
+					continue
+				}
+				recentsMap[recent] = seen
+			}
+
+			// if the validator has recently signed, it is unexpected, stop here.
+			if seen, ok := recentsMap[val]; ok {
+				log.Error("unreachable code, validator signed recently",
+					"block", header.Number, "address", val,
+					"seen", seen, "len(snap.Recents)", len(snap.Recents))
+				return 0
+			}
+
+			inTurnAddr := validators[(snap.Number+1)%uint64(len(validators))]
+			if _, ok := recentsMap[inTurnAddr]; ok {
+				log.Info("in turn validator has recently signed, skip initialBackOffTime",
+					"inTurnAddr", inTurnAddr)
+				delay = 0
+			}
+
+			// Exclude the recently signed validators
+			temp := make([]common.Address, 0, len(validators))
+			for _, addr := range validators {
+				if _, ok := recentsMap[addr]; ok {
+					continue
+				}
+				temp = append(temp, addr)
+			}
+			validators = temp
+		}
+
+		// get the index of current validator and its shuffled backoff time.
+		idx := -1
+		for index, itemAddr := range validators {
+			if val == itemAddr {
+				idx = index
+			}
+		}
 		if idx < 0 {
-			// The backOffTime does not matter when a validator is not authorized.
+			log.Info("The validator is not authorized", "addr", val)
 			return 0
 		}
+
 		s := rand.NewSource(int64(snap.Number))
 		r := rand.New(s)
-		n := len(snap.Validators)
+		n := len(validators)
 		backOffSteps := make([]uint64, 0, n)
-		for idx := uint64(0); idx < uint64(n); idx++ {
-			backOffSteps = append(backOffSteps, idx)
+
+		for i := uint64(0); i < uint64(n); i++ {
+			backOffSteps = append(backOffSteps, i)
 		}
+
 		r.Shuffle(n, func(i, j int) {
 			backOffSteps[i], backOffSteps[j] = backOffSteps[j], backOffSteps[i]
 		})
-		delay := initialBackOffTime + backOffSteps[idx]*wiggleTime
+
+		delay += backOffSteps[idx] * wiggleTime
 		return delay
 	}
 }

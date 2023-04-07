@@ -158,27 +158,6 @@ func NewNode(datadir string, config *NodeConfig) (stack *Node, _ error) {
 		if err := json.Unmarshal([]byte(config.EthereumGenesis), genesis); err != nil {
 			return nil, fmt.Errorf("invalid genesis spec: %v", err)
 		}
-		// If we have the Ropsten testnet, hard code the chain configs too
-		if config.EthereumGenesis == RopstenGenesis() {
-			genesis.Config = params.RopstenChainConfig
-			if config.EthereumNetworkID == 1 {
-				config.EthereumNetworkID = 3
-			}
-		}
-		// If we have the Rinkeby testnet, hard code the chain configs too
-		if config.EthereumGenesis == RinkebyGenesis() {
-			genesis.Config = params.RinkebyChainConfig
-			if config.EthereumNetworkID == 1 {
-				config.EthereumNetworkID = 4
-			}
-		}
-		// If we have the Goerli testnet, hard code the chain configs too
-		if config.EthereumGenesis == GoerliGenesis() {
-			genesis.Config = params.GoerliChainConfig
-			if config.EthereumNetworkID == 1 {
-				config.EthereumNetworkID = 5
-			}
-		}
 	}
 	// Register the Ethereum protocol if requested
 	if config.EthereumEnabled {
@@ -211,14 +190,6 @@ func (n *Node) Close() error {
 func (n *Node) Start() error {
 	// TODO: recreate the node so it can be started multiple times
 	return n.node.Start()
-}
-
-// Stop terminates a running node along with all its services. If the node was not started,
-// an error is returned. It is not possible to restart a stopped node.
-//
-// Deprecated: use Close()
-func (n *Node) Stop() error {
-	return n.node.Close()
 }
 
 // GetEthereumClient retrieves a client to access the Ethereum subsystem.

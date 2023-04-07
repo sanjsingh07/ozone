@@ -1,30 +1,7 @@
 package parlia
 
 const validatorSetABI = `
-[   {
-      "inputs": [
-      {
-        "internalType": "address",
-        "name": "contAddr",
-        "type": "address"
-      },
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "pushContractOwner",
-      "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-        }
-      ],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
+[
     {
       "anonymous": false,
       "inputs": [
@@ -1188,23 +1165,18 @@ const validatorSetABI = `
       "type": "function"
     },
     {
-			"inputs": [
-				{
-					"internalType": "address",
-					"name": "valAddr",
-					"type": "address"
-				},
-				{
-					"internalType": "address[]",
-					"name": "_contractArray",
-					"type": "address[]"
-				}
-			],
-			"name": "deposit",
-			"outputs": [],
-			"stateMutability": "payable",
-			"type": "function"
-		},
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "valAddr",
+          "type": "address"
+        }
+      ],
+      "name": "deposit",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
     {
       "inputs": [],
       "name": "getMiningValidators",

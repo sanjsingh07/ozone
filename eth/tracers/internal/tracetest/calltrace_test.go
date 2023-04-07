@@ -118,20 +118,17 @@ type callTrace struct {
 
 // callTracerTest defines a single test to check the call tracer against.
 type callTracerTest struct {
-	Genesis *core.Genesis `json:"genesis"`
-	Context *callContext  `json:"context"`
-	Input   string        `json:"input"`
-	Result  *callTrace    `json:"result"`
+	Genesis      *core.Genesis   `json:"genesis"`
+	Context      *callContext    `json:"context"`
+	Input        string          `json:"input"`
+	TracerConfig json.RawMessage `json:"tracerConfig"`
+	Result       *callTrace      `json:"result"`
 }
 
 // Iterates over all the input-output datasets in the tracer test harness and
 // runs the JavaScript tracers against them.
 func TestCallTracerLegacy(t *testing.T) {
 	testCallTracer("callTracerLegacy", "call_tracer_legacy", t)
-}
-
-func TestCallTracerJs(t *testing.T) {
-	testCallTracer("callTracerJs", "call_tracer", t)
 }
 
 func TestCallTracerNative(t *testing.T) {
@@ -183,12 +180,12 @@ func testCallTracer(tracerName string, dirPath string, t *testing.T) {
 				}
 				_, statedb = tests.MakePreState(rawdb.NewMemoryDatabase(), test.Genesis.Alloc, false)
 			)
-			tracer, err := tracers.New(tracerName, new(tracers.Context))
+			tracer, err := tracers.New(tracerName, new(tracers.Context), test.TracerConfig)
 			if err != nil {
 				t.Fatalf("failed to create call tracer: %v", err)
 			}
 			evm := vm.NewEVM(context, txContext, statedb, test.Genesis.Config, vm.Config{Debug: true, Tracer: tracer})
-			msg, err := tx.AsMessage(signer)
+			msg, err := tx.AsMessage(signer, nil)
 			if err != nil {
 				t.Fatalf("failed to prepare transaction for tracing: %v", err)
 			}
@@ -262,7 +259,7 @@ func BenchmarkTracers(b *testing.B) {
 			if err := json.Unmarshal(blob, test); err != nil {
 				b.Fatalf("failed to parse testcase: %v", err)
 			}
-			benchTracer("callTracerNative", test, b)
+			benchTracer("callTracer", test, b)
 		})
 	}
 }
@@ -274,7 +271,7 @@ func benchTracer(tracerName string, test *callTracerTest, b *testing.B) {
 		b.Fatalf("failed to parse testcase input: %v", err)
 	}
 	signer := types.MakeSigner(test.Genesis.Config, new(big.Int).SetUint64(uint64(test.Context.Number)))
-	msg, err := tx.AsMessage(signer)
+	msg, err := tx.AsMessage(signer, nil)
 	if err != nil {
 		b.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}
@@ -297,7 +294,7 @@ func benchTracer(tracerName string, test *callTracerTest, b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		tracer, err := tracers.New(tracerName, new(tracers.Context))
+		tracer, err := tracers.New(tracerName, new(tracers.Context), nil)
 		if err != nil {
 			b.Fatalf("failed to create call tracer: %v", err)
 		}
@@ -363,12 +360,12 @@ func TestZeroValueToNotExitCall(t *testing.T) {
 	}
 	_, statedb := tests.MakePreState(rawdb.NewMemoryDatabase(), alloc, false)
 	// Create the tracer, the EVM environment and run it
-	tracer, err := tracers.New("callTracer", nil)
+	tracer, err := tracers.New("callTracer", nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create call tracer: %v", err)
 	}
 	evm := vm.NewEVM(context, txContext, statedb, params.MainnetChainConfig, vm.Config{Debug: true, Tracer: tracer})
-	msg, err := tx.AsMessage(signer)
+	msg, err := tx.AsMessage(signer, nil)
 	if err != nil {
 		t.Fatalf("failed to prepare transaction for tracing: %v", err)
 	}
@@ -385,7 +382,7 @@ func TestZeroValueToNotExitCall(t *testing.T) {
 	if err := json.Unmarshal(res, have); err != nil {
 		t.Fatalf("failed to unmarshal trace result: %v", err)
 	}
-	wantStr := `{"type":"CALL","from":"0x682a80a6f560eec50d54e63cbeda1c324c5f8d1b","to":"0x00000000000000000000000000000000deadbeef","value":"0x0","gas":"0x7148","gasUsed":"0x2d0","input":"0x","output":"0x","calls":[{"type":"CALL","from":"0x00000000000000000000000000000000deadbeef","to":"0x00000000000000000000000000000000000000ff","value":"0x0","gas":"0x6cbf","gasUsed":"0x0","input":"0x","output":"0x"}]}`
+	wantStr := `{"from":"0x682a80a6f560eec50d54e63cbeda1c324c5f8d1b","gas":"0x7148","gasUsed":"0x54d8","to":"0x00000000000000000000000000000000deadbeef","input":"0x","calls":[{"from":"0x00000000000000000000000000000000deadbeef","gas":"0x6cbf","gasUsed":"0x0","to":"0x00000000000000000000000000000000000000ff","input":"0x","value":"0x0","type":"CALL"}],"value":"0x0","type":"CALL"}`
 	want := new(callTrace)
 	json.Unmarshal([]byte(wantStr), want)
 	if !jsonEqual(have, want) {
