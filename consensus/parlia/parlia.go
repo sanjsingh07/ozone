@@ -1088,10 +1088,12 @@ func (p *Parlia) distributeIncoming(val common.Address, state *state.StateDB, he
 				return err
 			}
 			log.Trace("distribute to system reward pool", "block hash", header.Hash(), "amount", rewards)
+			log.Info("distribute to system reward pool", "block hash", header.Hash(), "amount", rewards)
 			balance = balance.Sub(balance, rewards)
 		}
 	}
 	log.Trace("distribute to validator contract", "block hash", header.Hash(), "amount", balance)
+	log.Info("distribute to validator contract", "block hash", header.Hash(), "amount", balance)
 	return p.distributeToValidator(balance, val, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 }
 
@@ -1112,6 +1114,7 @@ func (p *Parlia) slash(spoiledVal common.Address, state *state.StateDB, header *
 	// get system message
 	msg := p.getSystemMessage(header.Coinbase, common.HexToAddress(systemcontracts.SlashContract), data, common.Big0)
 	// apply message
+	log.Info("printing inside slash")
 	return p.applyTransaction(msg, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 }
 
@@ -1131,6 +1134,7 @@ func (p *Parlia) initContract(state *state.StateDB, header *types.Header, chain 
 		systemcontracts.CrossChainContract,
 	}
 	// get packed data
+	log.Info("printing inside // init contract")
 	data, err := p.validatorSetABI.Pack(method)
 	if err != nil {
 		log.Error("Unable to pack tx for init validator set", "error", err)
@@ -1140,6 +1144,7 @@ func (p *Parlia) initContract(state *state.StateDB, header *types.Header, chain 
 		msg := p.getSystemMessage(header.Coinbase, common.HexToAddress(c), data, common.Big0)
 		// apply message
 		log.Trace("init contract", "block hash", header.Hash(), "contract", c)
+		log.Info("printing inside initContract")
 		err = p.applyTransaction(msg, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 		if err != nil {
 			return err
@@ -1153,6 +1158,7 @@ func (p *Parlia) distributeToSystem(amount *big.Int, state *state.StateDB, heade
 	// get system message
 	msg := p.getSystemMessage(header.Coinbase, common.HexToAddress(systemcontracts.SystemRewardContract), nil, amount)
 	// apply message
+	log.Info("printing inside distributeToSystem")
 	return p.applyTransaction(msg, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 }
 
@@ -1174,6 +1180,7 @@ func (p *Parlia) distributeToValidator(amount *big.Int, validator common.Address
 	// get system message
 	msg := p.getSystemMessage(header.Coinbase, common.HexToAddress(systemcontracts.ValidatorContract), data, amount)
 	// apply message
+	log.Info("printing inside distributeToValidator")
 	return p.applyTransaction(msg, state, header, chain, txs, receipts, receivedTxs, usedGas, mining)
 }
 
@@ -1400,12 +1407,15 @@ func applyMessage(
 	chainConfig *params.ChainConfig,
 	chainContext core.ChainContext,
 ) (uint64, error) {
+
+	log.Info("printing inside // apply message: ", "msg", msg, "state", state, "header", header, "chainConfig", chainConfig, "chainContext", chainContext)
 	// Create a new context to be used in the EVM environment
 	context := core.NewEVMBlockContext(header, chainContext, nil)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, vm.TxContext{Origin: msg.From(), GasPrice: big.NewInt(0)}, state, chainConfig, vm.Config{})
 	// Apply the transaction to the current state (included in the env)
+	log.Info("printing", "msg.From()", msg.From(), "msg.Data()", msg.Data(), "msg.Gas()", msg.Gas(), "msg.Value()", msg.Value(), "vmenv", vmenv)
 	ret, returnGas, err := vmenv.Call(
 		vm.AccountRef(msg.From()),
 		*msg.To(),

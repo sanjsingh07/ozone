@@ -952,9 +952,10 @@ func DoCall(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash 
 
 func newRevertError(result *core.ExecutionResult) *revertError {
 	reason, errUnpack := abi.UnpackRevert(result.Revert())
-	err := errors.New("execution reverted")
+	err := errors.New("execution reverted failing in api.go")
+	log.Info("printing in api.go")
 	if errUnpack == nil {
-		err = fmt.Errorf("execution reverted: %v", reason)
+		err = fmt.Errorf("execution reverted failing in api.go: %v", reason)
 	}
 	return &revertError{
 		error:  err,
